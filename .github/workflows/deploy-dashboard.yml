@@ -126,10 +126,17 @@ jobs:
       - name: Build Next.js application
         run: npm run build
         env:
-          # Use dummy values for build
+          # Use dummy values for build (real values used at runtime)
           POSTGRES_URL: postgresql://dummy:dummy@localhost:5432/dummy
-          AUTH_SECRET: dummy-secret-for-build-only
+          POSTGRES_PRISMA_URL: postgresql://dummy:dummy@localhost:5432/dummy
+          POSTGRES_URL_NON_POOLING: postgresql://dummy:dummy@localhost:5432/dummy
+          POSTGRES_USER: dummy
+          POSTGRES_HOST: localhost
+          POSTGRES_PASSWORD: dummy
+          POSTGRES_DATABASE: dummy
+          AUTH_SECRET: dummy-secret-for-build-only-will-be-replaced-at-runtime
           AUTH_URL: http://localhost:3000/api/auth
+          SKIP_ENV_VALIDATION: true
 
       - name: Check build output
         run: |
