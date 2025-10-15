@@ -192,7 +192,8 @@ jobs:
           AUTH_URL: ${{ secrets.AUTH_URL }}
         run: |
           npm run sst:deploy:staging
-          echo "url=$(npx sst url --stage staging)" >> $GITHUB_OUTPUT
+          echo "Deployment completed successfully!"
+          echo "url=https://d3pq0ftcbhgpo5.cloudfront.net" >> $GITHUB_OUTPUT
 
       - name: Comment deployment URL on PR
         if: github.event_name == 'pull_request'
