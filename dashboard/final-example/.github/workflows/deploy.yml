@@ -1,0 +1,237 @@
+name: Deploy Next.js Dashboard
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '18.x'
+
+jobs:
+  # Job 1: Code Quality Checks
+  quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+        continue-on-error: false
+
+      - name: Check TypeScript
+        run: npx tsc --noEmit
+
+      - name: Check Prettier formatting
+        run: npx prettier --check .
+
+  # Job 2: Security Scanning
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Trivy vulnerability scanner
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      # Snyk security scanning
+      - name: Run Snyk to check for vulnerabilities
+        uses: snyk/actions/node@master
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high
+
+      # npm audit
+      - name: Run npm audit
+        run: npm audit --audit-level=high
+        continue-on-error: true
+
+  # Job 3: Build and Test
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [quality, security]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Next.js application
+        run: npm run build
+        env:
+          # Use dummy values for build
+          POSTGRES_URL: postgresql://dummy:dummy@localhost:5432/dummy
+          AUTH_SECRET: dummy-secret-for-build-only
+          AUTH_URL: http://localhost:3000/api/auth
+
+      - name: Check build output
+        run: |
+          echo "Checking .next directory..."
+          ls -la .next/
+          echo "Build completed successfully!"
+
+  # Job 4: Deploy to Staging
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: staging
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Deploy to staging with SST
+        id: deploy
+        run: |
+          npm run sst:deploy:staging
+          echo "url=$(npx sst url --stage staging)" >> $GITHUB_OUTPUT
+        env:
+          POSTGRES_URL: ${{ secrets.STAGING_POSTGRES_URL }}
+          POSTGRES_PRISMA_URL: ${{ secrets.STAGING_POSTGRES_PRISMA_URL }}
+          POSTGRES_URL_NON_POOLING: ${{ secrets.STAGING_POSTGRES_URL_NON_POOLING }}
+          POSTGRES_USER: ${{ secrets.STAGING_POSTGRES_USER }}
+          POSTGRES_HOST: ${{ secrets.STAGING_POSTGRES_HOST }}
+          POSTGRES_PASSWORD: ${{ secrets.STAGING_POSTGRES_PASSWORD }}
+          POSTGRES_DATABASE: ${{ secrets.STAGING_POSTGRES_DATABASE }}
+          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+          AUTH_URL: ${{ secrets.STAGING_AUTH_URL }}
+
+      - name: Comment deployment URL on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `🚀 Deployed to staging: ${{ steps.deploy.outputs.url }}`
+            })
+
+  # Job 5: Deploy to Production (Manual Approval Required)
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [deploy-staging]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Deploy to production with SST
+        id: deploy
+        run: |
+          npm run sst:deploy:prod
+          echo "url=$(npx sst url --stage prod)" >> $GITHUB_OUTPUT
+        env:
+          POSTGRES_URL: ${{ secrets.PROD_POSTGRES_URL }}
+          POSTGRES_PRISMA_URL: ${{ secrets.PROD_POSTGRES_PRISMA_URL }}
+          POSTGRES_URL_NON_POOLING: ${{ secrets.PROD_POSTGRES_URL_NON_POOLING }}
+          POSTGRES_USER: ${{ secrets.PROD_POSTGRES_USER }}
+          POSTGRES_HOST: ${{ secrets.PROD_POSTGRES_HOST }}
+          POSTGRES_PASSWORD: ${{ secrets.PROD_POSTGRES_PASSWORD }}
+          POSTGRES_DATABASE: ${{ secrets.PROD_POSTGRES_DATABASE }}
+          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+          AUTH_URL: ${{ secrets.PROD_AUTH_URL }}
+
+      - name: Notify deployment success
+        if: success()
+        run: |
+          echo "🎉 Successfully deployed to production!"
+          echo "URL: ${{ steps.deploy.outputs.url }}"
+
+      - name: Notify deployment failure
+        if: failure()
+        run: |
+          echo "❌ Production deployment failed!"
+          exit 1

@@ -1,0 +1,21 @@
+# Build outputs
+.next
+out
+build
+dist
+
+# Dependencies
+node_modules
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
+# SST
+.sst
+.open-next
+
+# Misc
+.git
+.env
+.env*.local
+*.log
