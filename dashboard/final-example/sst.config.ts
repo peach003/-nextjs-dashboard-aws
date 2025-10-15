@@ -1,4 +1,6 @@
+/* eslint-disable @typescript-eslint/triple-slash-reference */
 /// <reference path="./.sst/platform/config.d.ts" />
+/* eslint-enable @typescript-eslint/triple-slash-reference */
 
 /**
  * SST Configuration for Next.js Dashboard
