@@ -208,59 +208,61 @@ jobs:
             })
 
   # Job 5: Deploy to Production (Manual Approval Required)
-  deploy-production:
-    name: Deploy to Production
-    runs-on: ubuntu-latest
-    needs: [deploy-staging]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    environment:
-      name: production
-      url: ${{ steps.deploy.outputs.url }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: 'dashboard/final-example/package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
-
-      - name: Deploy to production with SST
-        id: deploy
-        run: |
-          npm run sst:deploy:prod
-          echo "url=$(npx sst url --stage prod)" >> $GITHUB_OUTPUT
-        env:
-          POSTGRES_URL: ${{ secrets.PROD_POSTGRES_URL }}
-          POSTGRES_PRISMA_URL: ${{ secrets.PROD_POSTGRES_PRISMA_URL }}
-          POSTGRES_URL_NON_POOLING: ${{ secrets.PROD_POSTGRES_URL_NON_POOLING }}
-          POSTGRES_USER: ${{ secrets.PROD_POSTGRES_USER }}
-          POSTGRES_HOST: ${{ secrets.PROD_POSTGRES_HOST }}
-          POSTGRES_PASSWORD: ${{ secrets.PROD_POSTGRES_PASSWORD }}
-          POSTGRES_DATABASE: ${{ secrets.PROD_POSTGRES_DATABASE }}
-          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
-          AUTH_URL: ${{ secrets.PROD_AUTH_URL }}
-
-      - name: Notify deployment success
-        if: success()
-        run: |
-          echo "🎉 Successfully deployed to production!"
-          echo "URL: ${{ steps.deploy.outputs.url }}"
-
-      - name: Notify deployment failure
-        if: failure()
-        run: |
-          echo "❌ Production deployment failed!"
-          exit 1
+  # Disabled until production secrets are configured
+  # To enable: uncomment this entire job and configure PROD_* secrets
+  # deploy-production:
+  #   name: Deploy to Production
+  #   runs-on: ubuntu-latest
+  #   needs: [deploy-staging]
+  #   if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+  #   environment:
+  #     name: production
+  #     url: ${{ steps.deploy.outputs.url }}
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+  #
+  #     - name: Setup Node.js
+  #       uses: actions/setup-node@v4
+  #       with:
+  #         node-version: ${{ env.NODE_VERSION }}
+  #         cache: 'npm'
+  #         cache-dependency-path: 'dashboard/final-example/package-lock.json'
+  #
+  #     - name: Install dependencies
+  #       run: npm ci
+  #
+  #     - name: Configure AWS credentials
+  #       uses: aws-actions/configure-aws-credentials@v4
+  #       with:
+  #         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  #         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  #         aws-region: us-east-1
+  #
+  #     - name: Deploy to production with SST
+  #       id: deploy
+  #       run: |
+  #         npm run sst:deploy:prod
+  #         echo "url=$(npx sst url --stage prod)" >> $GITHUB_OUTPUT
+  #       env:
+  #         POSTGRES_URL: ${{ secrets.PROD_POSTGRES_URL }}
+  #         POSTGRES_PRISMA_URL: ${{ secrets.PROD_POSTGRES_PRISMA_URL }}
+  #         POSTGRES_URL_NON_POOLING: ${{ secrets.PROD_POSTGRES_URL_NON_POOLING }}
+  #         POSTGRES_USER: ${{ secrets.PROD_POSTGRES_USER }}
+  #         POSTGRES_HOST: ${{ secrets.PROD_POSTGRES_HOST }}
+  #         POSTGRES_PASSWORD: ${{ secrets.PROD_POSTGRES_PASSWORD }}
+  #         POSTGRES_DATABASE: ${{ secrets.PROD_POSTGRES_DATABASE }}
+  #         AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+  #         AUTH_URL: ${{ secrets.PROD_AUTH_URL }}
+  #
+  #     - name: Notify deployment success
+  #       if: success()
+  #       run: |
+  #         echo "🎉 Successfully deployed to production!"
+  #         echo "URL: ${{ steps.deploy.outputs.url }}"
+  #
+  #     - name: Notify deployment failure
+  #       if: failure()
+  #       run: |
+  #         echo "❌ Production deployment failed!"
+  #         exit 1
