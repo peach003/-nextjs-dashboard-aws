@@ -135,7 +135,7 @@ jobs:
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           POSTGRES_DATABASE: ${{ secrets.POSTGRES_DATABASE }}
           AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
-          AUTH_URL: http://localhost:3000/api/auth
+          AUTH_URL: ${{ secrets.AUTH_URL }}
 
       - name: Check build output
         run: |
@@ -178,19 +178,21 @@ jobs:
 
       - name: Deploy to staging with SST
         id: deploy
+        env:
+          # Database credentials
+          POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
+          POSTGRES_PRISMA_URL: ${{ secrets.POSTGRES_PRISMA_URL }}
+          POSTGRES_URL_NON_POOLING: ${{ secrets.POSTGRES_URL_NON_POOLING }}
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_HOST: ${{ secrets.POSTGRES_HOST }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DATABASE: ${{ secrets.POSTGRES_DATABASE }}
+          # Auth configuration
+          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+          AUTH_URL: ${{ secrets.AUTH_URL }}
         run: |
           npm run sst:deploy:staging
           echo "url=$(npx sst url --stage staging)" >> $GITHUB_OUTPUT
-        env:
-          POSTGRES_URL: ${{ secrets.STAGING_POSTGRES_URL }}
-          POSTGRES_PRISMA_URL: ${{ secrets.STAGING_POSTGRES_PRISMA_URL }}
-          POSTGRES_URL_NON_POOLING: ${{ secrets.STAGING_POSTGRES_URL_NON_POOLING }}
-          POSTGRES_USER: ${{ secrets.STAGING_POSTGRES_USER }}
-          POSTGRES_HOST: ${{ secrets.STAGING_POSTGRES_HOST }}
-          POSTGRES_PASSWORD: ${{ secrets.STAGING_POSTGRES_PASSWORD }}
-          POSTGRES_DATABASE: ${{ secrets.STAGING_POSTGRES_DATABASE }}
-          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
-          AUTH_URL: ${{ secrets.STAGING_AUTH_URL }}
 
       - name: Comment deployment URL on PR
         if: github.event_name == 'pull_request'
