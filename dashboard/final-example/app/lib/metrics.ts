@@ -14,6 +14,7 @@ import {
   CloudWatchClient,
   PutMetricDataCommand,
   type MetricDatum,
+  type StandardUnit,
 } from '@aws-sdk/client-cloudwatch';
 import { logger } from './logger';
 
@@ -36,7 +37,7 @@ if (isAWS) {
 async function putMetric(
   metricName: string,
   value: number,
-  unit: string = 'Count',
+  unit: StandardUnit = 'Count',
   dimensions?: Record<string, string>,
 ) {
   // Skip if not in AWS
@@ -68,7 +69,7 @@ async function putMetric(
 
     logger.debug(`Metric sent: ${metricName} = ${value}`);
   } catch (error) {
-    logger.error('Failed to send metric', { error, metricName });
+    logger.error({ msg: 'Failed to send metric', error, metricName });
   }
 }
 
@@ -88,7 +89,7 @@ export async function incrementCounter(
 export async function recordValue(
   metricName: string,
   value: number,
-  unit: string = 'None',
+  unit: StandardUnit = 'None',
   dimensions?: Record<string, string>,
 ) {
   await putMetric(metricName, value, unit, dimensions);

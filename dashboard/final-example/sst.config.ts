@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/triple-slash-reference */
 /// <reference path="./.sst/platform/config.d.ts" />
 /* eslint-enable @typescript-eslint/triple-slash-reference */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 /**
  * SST Configuration for Next.js Dashboard
@@ -18,10 +19,13 @@
  * Deployment stages:
  * - staging: Lower resources, for testing
  * - prod: Production-ready with higher capacity
+ *
+ * Note: This file is excluded from tsconfig.json because SST type definitions
+ * are generated at runtime. Type checking happens during SST deployment.
  */
 
 export default $config({
-  app(input) {
+  app(input: any) {
     return {
       name: "nextjs-dashboard",
       removal: input?.stage === "production" ? "retain" : "remove",
